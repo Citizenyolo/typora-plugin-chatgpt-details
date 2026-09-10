@@ -1,0 +1,32 @@
+name: Validate plugin
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        run: node --check main.js
+
+      - name: Validate manifest
+        run: >-
+          node -e "const m=require('./manifest.json');
+          const required=['id','name','description','author','authorUrl','repo','version','minAppVersion','minCoreVersion','platforms'];
+          const missing=required.filter(k=>m[k]===undefined);
+          if(missing.length) throw new Error('Missing manifest fields: '+missing.join(', '));
+          if(m.id!=='citizenyolo.chatgpt-details') throw new Error('Unexpected plugin id');
+          if(m.version!=='1.0.10') throw new Error('Unexpected plugin version');"

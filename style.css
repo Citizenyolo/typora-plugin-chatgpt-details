@@ -1,0 +1,16 @@
+.chatgpt-details-summary {
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.82;
+}
+
+.chatgpt-details-summary:hover,
+.chatgpt-details-summary:focus-visible {
+  opacity: 1;
+}
+
+.chatgpt-details-hidden,
+.chatgpt-details-closer,
+.chatgpt-details-empty-wrapper {
+  display: none !important;
+}

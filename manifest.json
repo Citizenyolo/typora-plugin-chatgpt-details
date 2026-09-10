@@ -1,0 +1,14 @@
+{
+  "id": "citizenyolo.chatgpt-details",
+  "name": "ChatGPT Details",
+  "description": "Restores collapsible nested details blocks in Codex Markdown exports opened in Typora.",
+  "author": "Citizenyolo",
+  "authorUrl": "https://github.com/Citizenyolo",
+  "repo": "Citizenyolo/typora-plugin-chatgpt-details",
+  "version": "1.0.10",
+  "minAppVersion": "1.0.0",
+  "minCoreVersion": "2.0.0",
+  "platforms": [
+    "darwin"
+  ]
+}
