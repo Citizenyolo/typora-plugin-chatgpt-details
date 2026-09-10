@@ -77,12 +77,15 @@ described here has been verified on macOS.
 ### Manual installation on macOS
 
 1. Install Typora Community Plugin.
-2. Download the latest release ZIP and extract it.
+2. Download `plugin.zip` from the
+   [latest release](https://github.com/Citizenyolo/typora-plugin-chatgpt-details/releases/latest)
+   and extract it.
 3. Quit Typora.
-4. Copy the extracted `chatgpt-details` folder to:
+4. Create a `chatgpt-details` folder inside the standard global plugins
+   directory and copy the extracted files into it:
 
    ```text
-   ~/Library/Application Support/abnerworks.Typora/plugins/plugins/chatgpt-details/
+   ~/.typora/community-plugins/plugins/chatgpt-details/
    ```
 
 5. Confirm that `manifest.json`, `main.js`, and `style.css` are directly inside
