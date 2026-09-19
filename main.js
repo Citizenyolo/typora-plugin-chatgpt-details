@@ -50,6 +50,7 @@ export default class ChatGptDetailsPlugin extends Plugin {
     this._summaries = new Map()
     this._leaves = []
     this._leafOwners = new Map()
+    this._wrapperLeaves = new Map()
     this._closerLeaves = new Set()
     this._emptyWrappers = new Set()
 
@@ -96,6 +97,7 @@ export default class ChatGptDetailsPlugin extends Plugin {
     this._summaries.clear()
     this._leaves = []
     this._leafOwners.clear()
+    this._wrapperLeaves.clear()
     this._closerLeaves.clear()
     this._emptyWrappers.clear()
   }
@@ -168,6 +170,22 @@ export default class ChatGptDetailsPlugin extends Plugin {
       pair.summary.addEventListener("click", handler)
       this._summaries.set(pair.summary, handler)
     })
+
+    // Build a wrapper → leaf-index index so updateVisibilityForPair()
+    // can check "does this wrapper have any visible leaf?" in
+    // O(leaves in wrapper) rather than O(all leaves in document).
+    for (let i = 0; i < leaves.length; i++) {
+      for (let wrapper = leaves[i].parentElement; wrapper && wrapper !== root; wrapper = wrapper.parentElement) {
+        if (wrapper.matches(STRUCTURAL_WRAPPER_SELECTOR)) {
+          let indices = this._wrapperLeaves.get(wrapper)
+          if (!indices) {
+            indices = []
+            this._wrapperLeaves.set(wrapper, indices)
+          }
+          indices.push(i)
+        }
+      }
+    }
 
     for (const token of tokens.filter(isClosingToken)) {
       const leaf = token.closest("[cid]")
@@ -275,12 +293,16 @@ export default class ChatGptDetailsPlugin extends Plugin {
       }
 
       // No visible leaf in the pair's range for this wrapper.
-      // Check whether any other leaf (outside the pair) is still visible.
+      // Check whether any leaf in this wrapper (anywhere in the document)
+      // is still visible, using the precomputed index built by repair().
       let hasVisibleOutside = false
-      for (const leaf of this._leaves) {
-        if (!leaf.classList.contains(HIDDEN_CLASS) && wrapper.contains(leaf)) {
-          hasVisibleOutside = true
-          break
+      const indices = this._wrapperLeaves.get(wrapper)
+      if (indices) {
+        for (const idx of indices) {
+          if (!this._leaves[idx].classList.contains(HIDDEN_CLASS)) {
+            hasVisibleOutside = true
+            break
+          }
         }
       }
 

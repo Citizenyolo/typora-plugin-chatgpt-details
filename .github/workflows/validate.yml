@@ -30,3 +30,11 @@ jobs:
           if(missing.length) throw new Error('Missing manifest fields: '+missing.join(', '));
           if(m.id!=='citizenyolo.chatgpt-details') throw new Error('Unexpected plugin id');
           if(m.version!=='1.0.10') throw new Error('Unexpected plugin version');"
+
+      - name: Install test dependencies
+        run: npm install
+        working-directory: test
+
+      - name: Run unit tests
+        run: npm test
+        working-directory: test
