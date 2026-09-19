@@ -29,7 +29,7 @@ jobs:
           const missing=required.filter(k=>m[k]===undefined);
           if(missing.length) throw new Error('Missing manifest fields: '+missing.join(', '));
           if(m.id!=='citizenyolo.chatgpt-details') throw new Error('Unexpected plugin id');
-          if(m.version!=='1.0.10') throw new Error('Unexpected plugin version');"
+          if(!/^\d+\.\d+\.\d+$/.test(m.version)) throw new Error('version must be MAJOR.MINOR.PATCH, got: '+m.version);"
 
       - name: Install test dependencies
         run: npm install
