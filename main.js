@@ -50,6 +50,7 @@ export default class ChatGptDetailsPlugin extends Plugin {
     this._summaries = new Map()
     this._leaves = []
     this._leafOwners = new Map()
+    this._wrapperLeaves = new Map()
     this._closerLeaves = new Set()
     this._emptyWrappers = new Set()
 
@@ -96,6 +97,7 @@ export default class ChatGptDetailsPlugin extends Plugin {
     this._summaries.clear()
     this._leaves = []
     this._leafOwners.clear()
+    this._wrapperLeaves.clear()
     this._closerLeaves.clear()
     this._emptyWrappers.clear()
   }
@@ -162,12 +164,28 @@ export default class ChatGptDetailsPlugin extends Plugin {
         pair.collapsed = !pair.collapsed
         pair.details.toggleAttribute("open", !pair.collapsed)
         pair.summary.setAttribute("aria-expanded", String(!pair.collapsed))
-        this.updateVisibility()
+        this.updateVisibilityForPair(pair)
       }
 
       pair.summary.addEventListener("click", handler)
       this._summaries.set(pair.summary, handler)
     })
+
+    // Build a wrapper → leaf-index index so updateVisibilityForPair()
+    // can check "does this wrapper have any visible leaf?" in
+    // O(leaves in wrapper) rather than O(all leaves in document).
+    for (let i = 0; i < leaves.length; i++) {
+      for (let wrapper = leaves[i].parentElement; wrapper && wrapper !== root; wrapper = wrapper.parentElement) {
+        if (wrapper.matches(STRUCTURAL_WRAPPER_SELECTOR)) {
+          let indices = this._wrapperLeaves.get(wrapper)
+          if (!indices) {
+            indices = []
+            this._wrapperLeaves.set(wrapper, indices)
+          }
+          indices.push(i)
+        }
+      }
+    }
 
     for (const token of tokens.filter(isClosingToken)) {
       const leaf = token.closest("[cid]")
@@ -185,7 +203,12 @@ export default class ChatGptDetailsPlugin extends Plugin {
 
     for (const leaf of this._leaves) {
       const owners = this._leafOwners.get(leaf)
-      const hiddenByCollapsedPair = owners && [...owners].some(pair => pair.collapsed)
+      let hiddenByCollapsedPair = false
+      if (owners) {
+        for (const pair of owners) {
+          if (pair.collapsed) { hiddenByCollapsedPair = true; break }
+        }
+      }
       const isCloser = this._closerLeaves.has(leaf)
       leaf.classList.toggle(HIDDEN_CLASS, Boolean(hiddenByCollapsedPair || isCloser))
       leaf.classList.toggle(CLOSER_CLASS, isCloser)
@@ -211,6 +234,97 @@ export default class ChatGptDetailsPlugin extends Plugin {
       if (!visibleWrappers.has(wrapper)) {
         wrapper.classList.add(EMPTY_WRAPPER_CLASS)
         this._emptyWrappers.add(wrapper)
+      }
+    }
+  }
+
+  /**
+   * Scoped visibility update called from click handlers.
+   *
+   * On each click only the leaves owned by `pair` can change their hidden
+   * state, so we iterate [openIndex+1, closeIndex) instead of all leaves.
+   * This is O(section size) rather than O(total document size), which makes
+   * a measurable difference in large Codex exports.
+   *
+   * Empty-wrapper re-evaluation is also scoped: only structural wrappers
+   * (li/ul/ol/blockquote) that contain at least one leaf in the affected
+   * range are re-checked.
+   */
+  updateVisibilityForPair(pair) {
+    const root = editorRoot()
+    const wrapperCandidates = new Set()
+    const wrapperWithVisible = new Set()
+
+    for (let i = pair.openIndex + 1; i < pair.closeIndex; i++) {
+      const leaf = this._leaves[i]
+      const owners = this._leafOwners.get(leaf)
+      let hiddenByCollapsedPair = false
+      if (owners) {
+        for (const p of owners) {
+          if (p.collapsed) { hiddenByCollapsedPair = true; break }
+        }
+      }
+      const isCloser = this._closerLeaves.has(leaf)
+      const hidden = Boolean(hiddenByCollapsedPair || isCloser)
+      leaf.classList.toggle(HIDDEN_CLASS, hidden)
+      leaf.classList.toggle(CLOSER_CLASS, isCloser)
+
+      for (let wrapper = leaf.parentElement; wrapper && wrapper !== root; wrapper = wrapper.parentElement) {
+        if (wrapper.matches(STRUCTURAL_WRAPPER_SELECTOR)) {
+          if (hidden) wrapperCandidates.add(wrapper)
+          else wrapperWithVisible.add(wrapper)
+        }
+      }
+    }
+
+    // Re-evaluate only wrappers touched by this pair's range.
+    // A candidate wrapper becomes empty only when none of its leaves
+    // (anywhere in the document, not just in this pair's range) are visible.
+    for (const wrapper of wrapperCandidates) {
+      const wasEmpty = this._emptyWrappers.has(wrapper)
+
+      if (wrapperWithVisible.has(wrapper)) {
+        // A visible leaf inside the pair's range keeps the wrapper non-empty.
+        if (wasEmpty) {
+          wrapper.classList.remove(EMPTY_WRAPPER_CLASS)
+          this._emptyWrappers.delete(wrapper)
+        }
+        continue
+      }
+
+      // No visible leaf in the pair's range for this wrapper.
+      // Check whether any leaf in this wrapper (anywhere in the document)
+      // is still visible, using the precomputed index built by repair().
+      let hasVisibleOutside = false
+      const indices = this._wrapperLeaves.get(wrapper)
+      if (indices) {
+        for (const idx of indices) {
+          if (!this._leaves[idx].classList.contains(HIDDEN_CLASS)) {
+            hasVisibleOutside = true
+            break
+          }
+        }
+      }
+
+      if (hasVisibleOutside) {
+        if (wasEmpty) {
+          wrapper.classList.remove(EMPTY_WRAPPER_CLASS)
+          this._emptyWrappers.delete(wrapper)
+        }
+      } else {
+        if (!wasEmpty) {
+          wrapper.classList.add(EMPTY_WRAPPER_CLASS)
+          this._emptyWrappers.add(wrapper)
+        }
+      }
+    }
+
+    // A wrapper that was previously a candidate but now has a visible leaf
+    // (because this pair was expanded) must lose its empty-wrapper class.
+    for (const wrapper of wrapperWithVisible) {
+      if (this._emptyWrappers.has(wrapper)) {
+        wrapper.classList.remove(EMPTY_WRAPPER_CLASS)
+        this._emptyWrappers.delete(wrapper)
       }
     }
   }
