@@ -1,0 +1,11 @@
+{
+  "name": "chatgpt-details-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "jsdom": "^25.0.1"
+  }
+}
